@@ -700,8 +700,9 @@ class GLCanvas extends Component {
   }
 
   _requestDraw () {
-    if (this._rafDraw) return;
-    this._rafDraw = raf(this._handleDraw);
+    /*if (this._rafDraw) return;
+    this._rafDraw = raf(this._handleDraw);*/
+    this._handleDraw();
   }
 
   _handleDraw = () => {
