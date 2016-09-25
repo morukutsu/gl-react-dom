@@ -22,6 +22,8 @@ const WEBGL_CONTEXT_RESTORED = "webglcontextrestored";
 
 const disposeFunction = o => o.dispose();
 
+const PREVIOUS_FRAME_FBO_ID = 123456789;
+
 // call f(obj, key) on all objects that have disappeared from oldMap to newMap
 function diffCall (newMap, oldMap, f) {
   for (const o in oldMap) {
@@ -314,6 +316,9 @@ class GLCanvas extends Component {
     const images = {}; // images cache (per src)
     const standaloneTextures = [];
 
+    const previousFrameFbo = _getFBO(PREVIOUS_FRAME_FBO_ID);
+    syncShape(previousFrameFbo, [ data.width, data.height ]);
+
     // traverseTree compute renderData from the data.
     // frameIndex is the framebuffer index of a node. (root is -1)
     function traverseTree (data) {
@@ -357,8 +362,16 @@ class GLCanvas extends Component {
       let textures = {}; // a texture is an object with a bind() function
       let units = 0; // Starting from 0, we will affect texture units to texture uniforms
       for (const uniformName in dataUniforms) {
-        const value = dataUniforms[uniformName];
-        const type = shader.types.uniforms[uniformName];
+        let value = dataUniforms[uniformName];
+        let type = shader.types.uniforms[uniformName];
+
+        if (uniformName == "previousFrame") {
+          value = {
+            id: PREVIOUS_FRAME_FBO_ID,
+            type: "fbo"
+          };
+          type  = "sampler2D";
+        }
 
         invariant(type, "Shader '%s': Uniform '%s' is not defined/used", shader.name, uniformName);
 
@@ -524,6 +537,12 @@ class GLCanvas extends Component {
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
+      if (fboId === 0) {
+        // Copy current frame to previous frame FBO
+        let previousFrameFbo = _getFBO(PREVIOUS_FRAME_FBO_ID);
+        gl.bindTexture(gl.TEXTURE_2D, previousFrameFbo.color[0].handle);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGB, 0, 0, w, h, 0);
+      }
 
       if (shouldProfile) {
         profileExclusive = now() - profileExclusive;
